@@ -14,7 +14,7 @@ import { serviceRequestAPI, mastersAPI } from '../../services/api';
 const ServiceRequestScreen = ({ route, navigation }) => {
   const { transporterProfileId, transporterName } = route.params;
   const [formData, setFormData] = useState({
-    vehicle_type_id: '',
+    vehicle_type_id: null,
     from_location_address: '',
     from_latitude: null,
     from_longitude: null,

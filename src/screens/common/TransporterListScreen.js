@@ -52,7 +52,7 @@ const TransporterListScreen = ({ route, navigation }) => {
       const favIds = new Set(response.data.data.map((f) => f.transporter_profile_id));
       setFavorites(favIds);
     } catch (error) {
-      console.error('Failed to load favorites:', error);
+      // Silent fail
     }
   };
 
@@ -70,7 +70,7 @@ const TransporterListScreen = ({ route, navigation }) => {
         setFavorites((prev) => new Set(prev).add(transporterId));
       }
     } catch (error) {
-      console.error('Failed to toggle favorite:', error);
+      // Silent fail
     }
   };
 
@@ -78,11 +78,16 @@ const TransporterListScreen = ({ route, navigation }) => {
     <TouchableOpacity
       style={styles.card}
       onPress={() => navigation.navigate('TransporterProfile', { id: item.id })}
+      activeOpacity={0.7}
     >
+      {/* Card Header */}
       <View style={styles.cardHeader}>
+        <View style={styles.avatarContainer}>
+          <Text style={styles.avatarText}>{item.business_name?.charAt(0) || 'T'}</Text>
+        </View>
         <View style={styles.cardInfo}>
-          <Text style={styles.businessName}>{item.business_name}</Text>
-          <Text style={styles.registrationType}>{item.business_type?.name || 'N/A'}</Text>
+          <Text style={styles.businessName} numberOfLines={1}>{item.business_name}</Text>
+          <Text style={styles.registrationType}>{item.business_type?.name || 'Transporter'}</Text>
         </View>
         <TouchableOpacity
           style={styles.favoriteButton}
@@ -94,21 +99,38 @@ const TransporterListScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
+      {/* Card Details */}
       <View style={styles.cardDetails}>
-        <Text style={styles.detailText}>📍 {item.business_location_address || 'Location not set'}</Text>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailIcon}>📍</Text>
+          <Text style={styles.detailText} numberOfLines={1}>
+            {item.business_location_address || 'Location not set'}
+          </Text>
+        </View>
         {item.business_city && (
-          <Text style={styles.detailText}>🏙️ {item.business_city}</Text>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailIcon}>🏙️</Text>
+            <Text style={styles.detailText}>{item.business_city}</Text>
+          </View>
         )}
         {item.fleet && item.fleet.length > 0 && (
-          <Text style={styles.detailText}>
-            🚛 {item.fleet.length} vehicle(s) available
-          </Text>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailIcon}>🚛</Text>
+            <Text style={styles.detailText}>{item.fleet.length} vehicle(s) available</Text>
+          </View>
         )}
       </View>
 
+      {/* Card Footer */}
       <View style={styles.cardFooter}>
-        <Text style={styles.contactText}>📞 {item.mobile}</Text>
-        <Text style={styles.viewMore}>View Details ›</Text>
+        <View style={styles.contactBadge}>
+          <Text style={styles.contactIcon}>📞</Text>
+          <Text style={styles.contactText}>{item.mobile}</Text>
+        </View>
+        <View style={styles.viewBadge}>
+          <Text style={styles.viewText}>View Details</Text>
+          <Text style={styles.viewArrow}>›</Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -132,7 +154,7 @@ const TransporterListScreen = ({ route, navigation }) => {
           !loading ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>🔍</Text>
-              <Text style={styles.emptyText}>No transporters found</Text>
+              <Text style={styles.emptyTitle}>No transporters found</Text>
               <Text style={styles.emptySubtext}>Try adjusting your search filters</Text>
             </View>
           ) : null
@@ -150,7 +172,7 @@ const TransporterListScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
   },
   list: {
     padding: 16,
@@ -162,77 +184,127 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
+  },
+  avatarContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   cardInfo: {
     flex: 1,
   },
   businessName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1E293B',
   },
   registrationType: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#64748B',
     marginTop: 2,
   },
   favoriteButton: {
     padding: 8,
   },
   favoriteIcon: {
-    fontSize: 24,
+    fontSize: 22,
   },
   cardDetails: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
     marginBottom: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  detailIcon: {
+    fontSize: 14,
+    marginRight: 8,
+    width: 20,
   },
   detailText: {
     fontSize: 14,
-    color: '#4B5563',
-    marginBottom: 4,
+    color: '#475569',
+    flex: 1,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+  },
+  contactBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  contactIcon: {
+    fontSize: 12,
+    marginRight: 6,
   },
   contactText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  viewMore: {
-    fontSize: 14,
-    color: '#2563EB',
+    fontSize: 13,
+    color: '#475569',
     fontWeight: '500',
+  },
+  viewBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  viewText: {
+    fontSize: 13,
+    color: '#2563EB',
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  viewArrow: {
+    fontSize: 16,
+    color: '#2563EB',
+    fontWeight: '600',
   },
   emptyContainer: {
     alignItems: 'center',
-    padding: 40,
+    padding: 48,
   },
   emptyIcon: {
-    fontSize: 48,
+    fontSize: 56,
     marginBottom: 16,
   },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#374151',
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#334155',
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
+    color: '#94A3B8',
+    marginTop: 6,
   },
   loader: {
     marginVertical: 16,

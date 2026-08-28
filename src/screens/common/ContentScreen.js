@@ -12,6 +12,7 @@ const ContentScreen = ({ route }) => {
   const { type, title } = route.params;
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadContent();
@@ -19,10 +20,19 @@ const ContentScreen = ({ route }) => {
 
   const loadContent = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const response = await contentAPI.getContent(type);
       setContent(response.data.data);
-    } catch (error) {
-      console.error('Failed to load content:', error);
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setContent({
+          title: title || 'Content',
+          content: 'This content is not available yet. Please check back later.',
+        });
+      } else {
+        setError('Failed to load content. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -36,18 +46,18 @@ const ContentScreen = ({ route }) => {
     );
   }
 
-  if (!content) {
+  if (error) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Content not available</Text>
+        <Text style={styles.errorText}>{error}</Text>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{content.title}</Text>
-      <Text style={styles.body}>{content.content}</Text>
+      <Text style={styles.title}>{content?.title || title}</Text>
+      <Text style={styles.body}>{content?.content || 'No content available.'}</Text>
     </ScrollView>
   );
 };
@@ -61,6 +71,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
   content: {
     padding: 24,
@@ -75,6 +86,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#374151',
     lineHeight: 26,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });
 

@@ -20,7 +20,7 @@ const RegisterTransporterScreen = ({ navigation }) => {
     mobile: '',
     email: '',
     business_name: '',
-    business_type_id: '',
+    business_type_id: null,
     contact_person_name: '',
     business_location_address: '',
     business_latitude: null,
@@ -82,9 +82,16 @@ const RegisterTransporterScreen = ({ navigation }) => {
     setLoading(true);
     try {
       await registerTransporter(formData);
-      Alert.alert('Success', 'Registration successful! Your profile is pending verification.');
+      Alert.alert(
+        'Success',
+        'Registration successful! Your profile is pending verification.',
+        [{ text: 'OK' }],
+      );
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Registration failed');
+      const msg = error.response?.data?.message || error.response?.data?.errors
+        ? Object.values(error.response.data.errors).flat().join('\n')
+        : 'Registration failed';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }

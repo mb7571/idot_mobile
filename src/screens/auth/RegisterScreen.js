@@ -32,8 +32,12 @@ const RegisterScreen = ({ navigation }) => {
     setLoading(true);
     try {
       await register({ name: name.trim(), mobile, email: email || undefined, role: 'customer' });
+      Alert.alert('Success', 'Registration successful! You are now logged in.');
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Registration failed');
+      const msg = error.response?.data?.message || error.response?.data?.errors
+        ? Object.values(error.response.data.errors).flat().join('\n')
+        : 'Registration failed';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }

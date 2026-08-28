@@ -12,7 +12,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 
 const OtpScreen = ({ route, navigation }) => {
-  const { mobile } = route.params;
+  const { mobile, devOtp } = route.params || {};
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const inputRefs = useRef([]);
@@ -72,6 +72,14 @@ const OtpScreen = ({ route, navigation }) => {
             Enter the 6-digit code sent to {mobile}
           </Text>
         </View>
+
+        {devOtp ? (
+          <View style={styles.devBanner}>
+            <Text style={styles.devBannerTitle}>🔧 Dev Mode</Text>
+            <Text style={styles.devBannerOtp}>OTP: {devOtp}</Text>
+            <Text style={styles.devBannerHint}>This will be hidden when SMS is configured</Text>
+          </View>
+        ) : null}
 
         <View style={styles.otpContainer}>
           {otp.map((digit, index) => (
@@ -190,6 +198,32 @@ const styles = StyleSheet.create({
   backText: {
     color: '#6B7280',
     fontSize: 14,
+  },
+  devBanner: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    alignItems: 'center',
+  },
+  devBannerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400E',
+    marginBottom: 8,
+  },
+  devBannerOtp: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1E40AF',
+    letterSpacing: 6,
+    marginBottom: 6,
+  },
+  devBannerHint: {
+    fontSize: 11,
+    color: '#92400E',
   },
 });
 
