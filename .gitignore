@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+android/app/build/
+ios/build/
+ios/Pods/
+
+# Metro
+.metro-health-check*
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Bundle
+*.bundle
+*.jsbundle
+
+# Gradle
+.gradle/
+local.properties
+
+# Lock files (keep package-lock.json)
+yarn.lock
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
