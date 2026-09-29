@@ -1,42 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  StyleSheet,
 } from 'react-native';
+import { COLORS } from '../../styles/colors';
 import { useAuth } from '../../context/AuthContext';
+import { isValidMobile } from '../../utils/helpers';
+import { PrimaryButton } from '../../components/SharedComponents';
 
 const RegisterScreen = ({ navigation }) => {
+  const { registerCustomer } = useAuth();
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
 
   const handleRegister = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter your name');
+      Alert.alert('Required', 'Please enter your name.');
       return;
     }
-    if (!mobile || mobile.length < 10) {
-      Alert.alert('Error', 'Please enter a valid mobile number');
+    const cleaned = mobile.replace(/\D/g, '');
+    if (!isValidMobile(cleaned)) {
+      Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
     }
 
     setLoading(true);
     try {
-      await register({ name: name.trim(), mobile, email: email || undefined, role: 'customer' });
-      Alert.alert('Success', 'Registration successful! You are now logged in.');
+      const result = await registerCustomer({
+        name: name.trim(),
+        mobile: cleaned,
+        email: email.trim() || undefined,
+        role: 'customer',
+      });
+      // Navigate to OTP screen with the OTP (dev mode) for verification
+      const otp = result?.otp;
+      navigation.navigate('Otp', { mobile: cleaned, otp });
     } catch (error) {
-      const msg = error.response?.data?.message || error.response?.data?.errors
-        ? Object.values(error.response.data.errors).flat().join('\n')
-        : 'Registration failed';
+      const msg = error.response?.data?.message || 'Registration failed. Please try again.';
       Alert.alert('Error', msg);
     } finally {
       setLoading(false);
@@ -48,62 +57,65 @@ const RegisterScreen = ({ navigation }) => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backText}>← Back</Text>
+        </TouchableOpacity>
+
         <View style={styles.header}>
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Register as a customer</Text>
+          <Text style={styles.subtitle}>Register as a Customer</Text>
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.label}>Full Name *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your full name"
-            value={name}
-            onChangeText={setName}
-            placeholderTextColor="#9CA3AF"
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Full Name *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your full name"
+              placeholderTextColor={COLORS.placeholder}
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+            />
+          </View>
 
-          <Text style={styles.label}>Mobile Number *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your mobile number"
-            value={mobile}
-            onChangeText={setMobile}
-            keyboardType="phone-pad"
-            maxLength={15}
-            placeholderTextColor="#9CA3AF"
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Mobile Number *</Text>
+            <View style={styles.inputRow}>
+              <View style={styles.prefixContainer}>
+                <Text style={styles.prefix}>+91</Text>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter mobile number"
+                placeholderTextColor={COLORS.placeholder}
+                keyboardType="phone-pad"
+                maxLength={10}
+                value={mobile}
+                onChangeText={setMobile}
+              />
+            </View>
+          </View>
 
-          <Text style={styles.label}>Email (Optional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholderTextColor="#9CA3AF"
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email (Optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter email address"
+              placeholderTextColor={COLORS.placeholder}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
+          </View>
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+          <PrimaryButton
+            title="Register"
             onPress={handleRegister}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? 'Registering...' : 'Register'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.loginLink}
-          >
-            <Text style={styles.loginText}>
-              Already have an account? <Text style={styles.loginBold}>Login</Text>
-            </Text>
-          </TouchableOpacity>
+            loading={loading}
+          />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -113,12 +125,21 @@ const RegisterScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.white,
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 60,
+    paddingBottom: 40,
+  },
+  backButton: {
+    marginBottom: 16,
+  },
+  backText: {
+    fontSize: 16,
+    color: COLORS.primary,
+    fontWeight: '500',
   },
   header: {
     marginBottom: 32,
@@ -126,58 +147,54 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#111827',
+    color: COLORS.text,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6B7280',
+    color: COLORS.textSecondary,
   },
   form: {
-    width: '100%',
+    gap: 16,
+  },
+  inputGroup: {
+    gap: 6,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    color: COLORS.text,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  prefixContainer: {
+    backgroundColor: COLORS.gray100,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRightWidth: 0,
+    borderTopLeftRadius: 10,
+    borderBottomLeftRadius: 10,
+    paddingHorizontal: 14,
+    height: 50,
+    justifyContent: 'center',
+  },
+  prefix: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
   },
   input: {
+    flex: 1,
+    backgroundColor: COLORS.inputBackground,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
-    padding: 16,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 50,
     fontSize: 16,
-    backgroundColor: '#F9FAFB',
-    marginBottom: 16,
-  },
-  button: {
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    backgroundColor: '#93C5FD',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loginLink: {
-    alignItems: 'center',
-    padding: 16,
-    marginTop: 8,
-  },
-  loginText: {
-    color: '#6B7280',
-    fontSize: 14,
-  },
-  loginBold: {
-    color: '#2563EB',
-    fontWeight: '600',
+    color: COLORS.text,
   },
 });
 

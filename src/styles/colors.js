@@ -1,0 +1,61 @@
+export const COLORS = {
+  primary: '#2563EB',
+  primaryDark: '#1E40AF',
+  primaryLight: '#DBEAFE',
+  secondary: '#10B981',
+  accent: '#F59E0B',
+  danger: '#EF4444',
+  warning: '#F59E0B',
+  success: '#10B981',
+  white: '#FFFFFF',
+  black: '#000000',
+  gray50: '#F9FAFB',
+  gray100: '#F3F4F6',
+  gray200: '#E5E7EB',
+  gray300: '#D1D5DB',
+  gray400: '#9CA3AF',
+  gray500: '#6B7280',
+  gray600: '#4B5563',
+  gray700: '#374151',
+  gray800: '#1F2937',
+  gray900: '#111827',
+  background: '#F9FAFB',
+  card: '#FFFFFF',
+  border: '#E5E7EB',
+  text: '#111827',
+  textSecondary: '#6B7280',
+  textLight: '#9CA3AF',
+  placeholder: '#9CA3AF',
+  inputBackground: '#F3F4F6',
+};
+
+export const FONTS = {
+  regular: { fontWeight: '400' },
+  medium: { fontWeight: '500' },
+  semibold: { fontWeight: '600' },
+  bold: { fontWeight: '700' },
+};
+
+export const SHADOWS = {
+  small: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  medium: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  large: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+};

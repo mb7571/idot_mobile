@@ -45,3 +45,11 @@ yarn.lock
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
+
+# Built artifacts / binaries
+*.apk
+*.aab
+
+# Debug screenshots & scratch files (repo root)
+/*.png

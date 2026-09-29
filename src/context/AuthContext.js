@@ -1,145 +1,119 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authAPI } from '../services/api';
+import { authAPI } from '../api';
 
 const AuthContext = createContext(null);
 
+// Normalize API user payloads:
+// - /auth/profile returns { data: { user, transporter_profile } }
+// - login/verify-otp return { data: { user, token } }
+// - some endpoints may return the user object directly
+// Without this, the wrapper object gets stored as the user and every
+// screen shows "User" with empty fields (user.name === undefined).
+const extractUser = (payload) => {
+  if (!payload) return null;
+  if (payload.user && typeof payload.user === 'object') return payload.user;
+  return payload;
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [transporterProfile, setTransporterProfile] = useState(null);
-  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Check for existing session on mount
   useEffect(() => {
-    checkAuthState();
+    checkAuth();
   }, []);
 
-  const checkAuthState = async () => {
+  const checkAuth = async () => {
     try {
-      const storedToken = await AsyncStorage.getItem('auth_token');
-      const storedUser = await AsyncStorage.getItem('user_data');
-      const storedProfile = await AsyncStorage.getItem('transporter_profile');
+      const token = await AsyncStorage.getItem('auth_token');
+      const userData = await AsyncStorage.getItem('user_data');
 
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-        if (storedProfile) {
-          setTransporterProfile(JSON.parse(storedProfile));
+      if (token && userData) {
+        const parsedUser = extractUser(JSON.parse(userData));
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+
+        // Refresh profile in background
+        try {
+          const response = await authAPI.getProfile();
+          const freshUser = extractUser(response.data?.data || response.data);
+          if (freshUser?.id) {
+            setUser(freshUser);
+            await AsyncStorage.setItem('user_data', JSON.stringify(freshUser));
+          }
+        } catch {
+          // Token might be expired — keep cached data but don't block
         }
       }
-    } catch (error) {
-      console.error('Error checking auth state:', error);
+    } catch {
+      // No valid session
     } finally {
       setLoading(false);
     }
   };
 
-  const sendOtp = async (mobile) => {
-    const response = await authAPI.sendOtp(mobile);
-    return response.data;
-  };
-
-  const verifyOtp = async (mobile, otp) => {
+  const login = async (mobile, otp) => {
     const response = await authAPI.verifyOtp(mobile, otp);
-    const { user: userData, token: authToken, transporter_profile } = response.data.data;
+    const data = response.data.data || response.data;
+    const token = data.token || data.access_token;
+    const userData = extractUser(data);
 
-    await AsyncStorage.setItem('auth_token', authToken);
+    await AsyncStorage.setItem('auth_token', token);
     await AsyncStorage.setItem('user_data', JSON.stringify(userData));
-
-    if (transporter_profile) {
-      await AsyncStorage.setItem('transporter_profile', JSON.stringify(transporter_profile));
-      setTransporterProfile(transporter_profile);
-    }
-
-    setToken(authToken);
     setUser(userData);
-
-    return response.data;
+    setIsAuthenticated(true);
+    return userData;
   };
 
-  const register = async (data) => {
+  const registerCustomer = async (data) => {
     const response = await authAPI.register(data);
-    const { user: userData, token: authToken } = response.data.data;
-
-    await AsyncStorage.setItem('auth_token', authToken);
-    await AsyncStorage.setItem('user_data', JSON.stringify(userData));
-
-    setToken(authToken);
-    setUser(userData);
-
-    return response.data;
+    const result = response.data.data || response.data;
+    // Don't auto-login — let the user verify OTP first.
+    // Return full result (user, otp in dev mode) so the caller can navigate to OTP screen.
+    return result;
   };
 
   const registerTransporter = async (data) => {
     const response = await authAPI.registerTransporter(data);
-    const { user: userData, token: authToken, transporter_profile } = response.data.data;
+    const result = response.data.data || response.data;
+    // Don't auto-login — let the user verify OTP first.
+    // Return full result (user, otp in dev mode) so the caller can navigate to OTP screen.
+    return result;
+  };
 
-    await AsyncStorage.setItem('auth_token', authToken);
-    await AsyncStorage.setItem('user_data', JSON.stringify(userData));
-    await AsyncStorage.setItem('transporter_profile', JSON.stringify(transporter_profile));
-
-    setToken(authToken);
-    setUser(userData);
-    setTransporterProfile(transporter_profile);
-
-    return response.data;
+  const updateUser = async (newData) => {
+    const updated = { ...user, ...newData };
+    setUser(updated);
+    await AsyncStorage.setItem('user_data', JSON.stringify(updated));
   };
 
   const logout = async () => {
     try {
       await authAPI.logout();
-    } catch (error) {
-      // Continue with logout even if API fails
+    } catch {
+      // Ignore logout API errors
     }
-
-    await AsyncStorage.removeItem('auth_token');
-    await AsyncStorage.removeItem('user_data');
-    await AsyncStorage.removeItem('transporter_profile');
-
-    setToken(null);
+    await AsyncStorage.multiRemove(['auth_token', 'user_data']);
     setUser(null);
-    setTransporterProfile(null);
+    setIsAuthenticated(false);
   };
 
-  const updateUser = async (userData) => {
-    setUser(userData);
-    await AsyncStorage.setItem('user_data', JSON.stringify(userData));
+  const value = {
+    user,
+    loading,
+    isAuthenticated,
+    login,
+    registerCustomer,
+    registerTransporter,
+    updateUser,
+    logout,
+    checkAuth,
   };
 
-  const updateTransporterProfile = async (profileData) => {
-    setTransporterProfile(profileData);
-    await AsyncStorage.setItem('transporter_profile', JSON.stringify(profileData));
-  };
-
-  const isAuthenticated = !!token;
-  const isCustomer = user?.role === 'customer';
-  const isTransporter = user?.role === 'transporter';
-  const isAdmin = user?.role === 'admin';
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        transporterProfile,
-        token,
-        loading,
-        isAuthenticated,
-        isCustomer,
-        isTransporter,
-        isAdmin,
-        sendOtp,
-        verifyOtp,
-        register,
-        registerTransporter,
-        logout,
-        updateUser,
-        updateTransporterProfile,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
@@ -149,5 +123,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
-export default AuthContext;

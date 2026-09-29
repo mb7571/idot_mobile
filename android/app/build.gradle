@@ -69,6 +69,13 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+// Load android/local.properties (not committed) — SDK path, MAPS_API_KEY, etc.
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader("UTF-8") { reader -> localProperties.load(reader) }
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -79,8 +86,12 @@ android {
         applicationId "com.idotmobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1"
+        // Injects the Maps key into AndroidManifest's ${MAPS_API_KEY} placeholder.
+        // Set MAPS_API_KEY in android/local.properties (or gradle.properties).
+        manifestPlaceholders = [MAPS_API_KEY: (localProperties.getProperty("MAPS_API_KEY")
+            ?: project.findProperty("MAPS_API_KEY") ?: "")]
     }
     signingConfigs {
         debug {

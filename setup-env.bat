@@ -16,7 +16,17 @@ echo.
 adb --version
 echo.
 
-echo Environment ready! You can now run:
-echo   npm start
-echo   npm run android
+echo ========================================
+echo   Environment ready!
+echo ========================================
+echo.
+echo To run on PHYSICAL DEVICE:
+echo   1. Run: setup-device.bat
+echo   2. Run: npm start
+echo   3. Run: npm run android
+echo.
+echo To run on EMULATOR:
+echo   1. Start Android emulator
+echo   2. Run: npm start
+echo   3. Run: npm run android
 echo.

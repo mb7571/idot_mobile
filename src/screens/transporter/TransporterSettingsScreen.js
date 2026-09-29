@@ -1,116 +1,125 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Alert,
-} from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { COLORS } from '../../styles/colors';
 import { useAuth } from '../../context/AuthContext';
 
 const TransporterSettingsScreen = ({ navigation }) => {
-  const { user, transporterProfile, logout } = useAuth();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Logout', style: 'destructive', onPress: logout },
+    ]);
+  };
 
   const menuItems = [
     {
-      id: 1,
-      title: 'My Profile',
       icon: '👤',
-      description: 'View and edit your business profile',
-      onPress: () => Alert.alert('Info', 'Profile edit screen will be implemented'),
+      title: 'My Profile',
+      subtitle: 'View your business details & edit',
+      screen: 'TransporterMyProfile',
+      color: '#3B82F6',
     },
     {
-      id: 2,
-      title: 'Verification Status',
-      icon: '✅',
-      description: `Status: ${transporterProfile?.verification_status || 'pending'}`,
-      onPress: () => {
-        const status = transporterProfile?.verification_status;
-        let message = '';
-        if (status === 'verified') {
-          message = 'Your transporter profile has been verified successfully.';
-        } else if (status === 'rejected') {
-          message = `Your registration has been rejected. ${transporterProfile?.rejection_reason || 'Please contact administrator.'}`;
-        } else {
-          message = 'Your registration is pending verification. Please wait for admin approval.';
-        }
-        Alert.alert('Verification Status', message);
-      },
-    },
-    {
-      id: 3,
-      title: 'Service Location',
-      icon: '📍',
-      description: `Service Radius: ${transporterProfile?.radius_option?.label || 'Not set'}`,
-      onPress: () => {
-        Alert.alert(
-          'Service Location',
-          `Location: ${transporterProfile?.service_location_address || 'Not set'}\nRadius: ${transporterProfile?.radius_option?.label || 'Not set'}\n\nNote: Service location is configured by admin.`
-        );
-      },
-    },
-    {
-      id: 4,
-      title: 'Transporter Terms & Conditions',
-      icon: '📄',
-      description: 'View terms and conditions',
-      onPress: () => navigation.navigate('Content', { type: 'transporter_terms', title: 'Terms & Conditions' }),
-    },
-    {
-      id: 5,
-      title: 'Privacy Policy',
-      icon: '🔒',
-      description: 'View privacy policy',
-      onPress: () => navigation.navigate('Content', { type: 'privacy_policy', title: 'Privacy Policy' }),
-    },
-    {
-      id: 6,
-      title: 'About iDOT',
       icon: 'ℹ️',
-      description: 'Version 1.0.0',
-      onPress: () => Alert.alert('iDOT', 'Version 1.0.0\nTransport made simple'),
+      title: 'About Us',
+      subtitle: 'Learn about iDOT',
+      onPress: () => navigation.navigate('Content', { type: 'about_us' }),
+      color: '#0EA5E9',
+    },
+    {
+      icon: '❓',
+      title: 'FAQ',
+      subtitle: 'Frequently asked questions',
+      onPress: () => navigation.navigate('Content', { type: 'faq' }),
+      color: '#14B8A6',
+    },
+    {
+      icon: '📜',
+      title: 'Terms & Conditions',
+      subtitle: 'Transporter terms',
+      onPress: () => navigation.navigate('Content', { type: 'transporter_terms' }),
+      color: '#8B5CF6',
+    },
+    {
+      icon: '🔒',
+      title: 'Privacy Policy',
+      subtitle: 'Read our privacy policy',
+      onPress: () => navigation.navigate('Content', { type: 'privacy_policy' }),
+      color: '#6366F1',
+    },
+    {
+      icon: '📞',
+      title: 'Help & Contact',
+      subtitle: 'Get support',
+      onPress: () => navigation.navigate('Content', { type: 'contact' }),
+      color: '#EC4899',
     },
   ];
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.profileSection}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'T'}</Text>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Profile Header */}
+      <LinearGradient colors={['#2563EB', '#1E40AF']} style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.avatarContainer}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)']}
+              style={styles.avatar}
+            >
+              <Text style={styles.avatarText}>
+                {(user?.name || 'T').charAt(0).toUpperCase()}
+              </Text>
+            </LinearGradient>
+            <View style={styles.onlineDot} />
+          </View>
+          <Text style={styles.profileName}>{user?.name || 'Transporter'}</Text>
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleText}>Transporter</Text>
+          </View>
+          {user?.mobile && <Text style={styles.profileInfo}>📱 {user.mobile}</Text>}
+          {user?.email && <Text style={styles.profileInfo}>📧 {user.email}</Text>}
         </View>
-        <Text style={styles.businessName}>{transporterProfile?.business_name || user?.name || 'Transporter'}</Text>
-        <Text style={styles.contactPerson}>{transporterProfile?.contact_person_name || ''}</Text>
-        <Text style={styles.mobile}>{user?.mobile || ''}</Text>
-        <View style={[styles.statusBadge, transporterProfile?.verification_status === 'verified' ? styles.badgeVerified : styles.badgePending]}>
-          <Text style={[styles.statusText, transporterProfile?.verification_status === 'verified' ? styles.textVerified : styles.textPending]}>
-            {transporterProfile?.verification_status === 'verified' ? '✓ Verified' : '⏳ Pending'}
-          </Text>
-        </View>
-      </View>
+      </LinearGradient>
 
+      {/* Menu Items */}
       <View style={styles.menuContainer}>
-        {menuItems.map((item) => (
+        <Text style={styles.sectionLabel}>ACCOUNT</Text>
+        {menuItems.map((item, index) => (
           <TouchableOpacity
-            key={item.id}
+            key={index}
             style={styles.menuItem}
-            onPress={item.onPress}
+            onPress={item.onPress || (() => navigation.navigate(item.screen))}
+            activeOpacity={0.7}
           >
-            <Text style={styles.menuIcon}>{item.icon}</Text>
-            <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>{item.title}</Text>
-              <Text style={styles.menuDescription}>{item.description}</Text>
+            <View style={[styles.menuIcon, { backgroundColor: item.color + '15' }]}>
+              <Text style={styles.menuIconText}>{item.icon}</Text>
             </View>
-            <Text style={styles.arrow}>›</Text>
+            <View style={styles.menuInfo}>
+              <Text style={styles.menuTitle}>{item.title}</Text>
+              <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+            </View>
+            <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
         ))}
+
+        {/* Logout */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
+          <LinearGradient
+            colors={['#FEE2E2', '#FECACA']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.logoutGradient}
+          >
+            <Text style={styles.logoutIcon}>🚪</Text>
+            <Text style={styles.logoutText}>Logout</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <Text style={styles.version}>iDOT Transporter v1.0.0</Text>
       </View>
-
-      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
-
-      <View style={{ height: 40 }} />
     </ScrollView>
   );
 };
@@ -118,111 +127,148 @@ const TransporterSettingsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F0F4F8',
   },
-  profileSection: {
-    backgroundColor: '#FFFFFF',
-    padding: 24,
+  header: {
+    paddingTop: 20,
+    paddingBottom: 32,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  headerContent: {
     alignItems: 'center',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 14,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#2563EB',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   avatarText: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: 36,
+    fontWeight: '800',
+    color: COLORS.white,
   },
-  businessName: {
+  onlineDot: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#10B981',
+    borderWidth: 3,
+    borderColor: '#2563EB',
+  },
+  profileName: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: '800',
+    color: COLORS.white,
+    marginBottom: 8,
   },
-  contactPerson: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  mobile: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  statusBadge: {
-    marginTop: 12,
+  roleBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 5,
     borderRadius: 20,
+    marginBottom: 10,
   },
-  badgeVerified: {
-    backgroundColor: '#D1FAE5',
-  },
-  badgePending: {
-    backgroundColor: '#FEF3C7',
-  },
-  statusText: {
+  roleText: {
+    color: COLORS.white,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  textVerified: {
-    color: '#065F46',
-  },
-  textPending: {
-    color: '#92400E',
+  profileInfo: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
   },
   menuContainer: {
     padding: 16,
   },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.textSecondary,
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
   menuItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
   menuIcon: {
-    fontSize: 24,
-    marginRight: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
   },
-  menuTextContainer: {
+  menuIconText: {
+    fontSize: 20,
+  },
+  menuInfo: {
     flex: 1,
   },
   menuTitle: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
+    fontWeight: '600',
+    color: COLORS.text,
   },
-  menuDescription: {
-    fontSize: 13,
-    color: '#6B7280',
+  menuSubtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
-  arrow: {
-    fontSize: 24,
-    color: '#9CA3AF',
+  menuArrow: {
+    fontSize: 22,
+    color: COLORS.gray300,
+    fontWeight: '300',
   },
   logoutButton: {
-    margin: 16,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  logoutGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  logoutIcon: {
+    fontSize: 18,
   },
   logoutText: {
-    color: '#DC2626',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  version: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: COLORS.textLight,
+    marginBottom: 20,
   },
 });
 

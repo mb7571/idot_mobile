@@ -1,106 +1,123 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   RefreshControl,
-  Alert,
+  StyleSheet,
+  Dimensions,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import LinearGradient from 'react-native-linear-gradient';
+import { COLORS } from '../../styles/colors';
 import { useAuth } from '../../context/AuthContext';
-import { notificationAPI, serviceRequestAPI } from '../../services/api';
+import { transporterAPI, serviceRequestAPI, notificationAPI, favoriteAPI } from '../../api';
+import { StatusBadge, Card } from '../../components/SharedComponents';
+import { getStatusInfo } from '../../utils/helpers';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const TransporterDashboardScreen = ({ navigation }) => {
-  const { user, transporterProfile, logout } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [pendingRequests, setPendingRequests] = useState(0);
+  const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [stats, setStats] = useState({ incoming: 0, unread: 0, favorites: 0 });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboard();
+    }, []),
+  );
 
-  const loadData = async () => {
+  const loadDashboard = async () => {
     try {
-      const [notifRes, reqRes] = await Promise.all([
+      const [profileRes, reqRes, notifRes, favRes] = await Promise.allSettled([
+        transporterAPI.getMyProfile(),
+        serviceRequestAPI.incomingRequests({}),
         notificationAPI.unreadCount(),
-        serviceRequestAPI.incomingRequests({ per_page: 1 }),
+        favoriteAPI.list(),
       ]);
-      setUnreadCount(notifRes.data.data.unread_count);
-      setPendingRequests(reqRes.data.data.total || 0);
-    } catch (error) {
-      console.error('Failed to load data:', error);
+      if (profileRes.status === 'fulfilled') {
+        setProfile(profileRes.value.data.data || profileRes.value.data);
+      }
+      setStats({
+        incoming:
+          reqRes.status === 'fulfilled'
+            ? (reqRes.value.data.data?.data || reqRes.value.data.data || reqRes.value.data || [])
+                .length
+            : 0,
+        unread:
+          notifRes.status === 'fulfilled'
+            ? notifRes.value.data.unread_count || notifRes.value.data.data?.unread_count || 0
+            : 0,
+        favorites:
+          favRes.status === 'fulfilled'
+            ? (favRes.value.data.data || favRes.value.data || []).length
+            : 0,
+      });
+    } catch {
+      // ignore
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await loadDashboard();
     setRefreshing(false);
   };
 
-  const verificationStatus = transporterProfile?.verification_status || 'pending';
-  const isVerified = verificationStatus === 'verified';
+  const verificationStatus = profile?.verification_status || 'pending';
+  const isVerified = verificationStatus === 'verified' || verificationStatus === 'approved';
 
-  const menuItems = [
+  const quickActions = [
     {
-      id: 1,
-      title: 'Search Transporters',
-      icon: '🔍',
-      description: 'Find other transporters',
-      screen: 'TransporterSearch',
-      color: '#2563EB',
-    },
-    {
-      id: 2,
-      title: 'Incoming Requests',
       icon: '📥',
-      description: pendingRequests > 0 ? `${pendingRequests} pending requests` : 'No pending requests',
+      title: 'Incoming',
+      subtitle: `${stats.incoming} pending`,
       screen: 'IncomingRequests',
-      color: '#059669',
-      badge: pendingRequests,
+      color: '#10B981',
+      bgColor: '#ECFDF5',
     },
     {
-      id: 3,
-      title: 'My Favorites',
-      icon: '❤️',
-      description: 'View saved transporters',
-      screen: 'Favorites',
-      color: '#DC2626',
-    },
-    {
-      id: 4,
-      title: 'My Requests',
-      icon: '📋',
-      description: 'View submitted requests',
-      screen: 'MyRequests',
-      color: '#D97706',
-    },
-    {
-      id: 5,
-      title: 'My Fleet',
       icon: '🚛',
-      description: 'View your fleet information',
+      title: 'My Fleet Services',
+      subtitle: 'Your vehicles',
       screen: 'MyFleet',
-      color: '#7C3AED',
+      color: '#2563EB',
+      bgColor: '#EFF6FF',
     },
     {
-      id: 6,
-      title: 'Notifications',
+      icon: '🔍',
+      title: 'Search',
+      subtitle: 'Find transporters',
+      screen: 'TransporterSearch',
+      color: '#8B5CF6',
+      bgColor: '#F5F3FF',
+    },
+    {
+      icon: '⭐',
+      title: 'Favorites',
+      subtitle: `${stats.favorites} saved`,
+      screen: 'Favorites',
+      color: '#F59E0B',
+      bgColor: '#FFFBEB',
+    },
+    {
+      icon: '📋',
+      title: 'My Requests',
+      subtitle: 'You submitted',
+      screen: 'MyRequests',
+      color: '#0EA5E9',
+      bgColor: '#F0F9FF',
+    },
+    {
       icon: '🔔',
-      description: unreadCount > 0 ? `${unreadCount} unread` : 'No new notifications',
+      title: 'Notifications',
+      subtitle: `${stats.unread} unread`,
       screen: 'Notifications',
-      color: '#EA580C',
-      badge: unreadCount,
-    },
-    {
-      id: 7,
-      title: 'Settings',
-      icon: '⚙️',
-      description: 'Manage your account',
-      screen: 'TransporterSettings',
-      color: '#6B7280',
+      color: '#EF4444',
+      bgColor: '#FEF2F2',
     },
   ];
 
@@ -108,48 +125,115 @@ const TransporterDashboardScreen = ({ navigation }) => {
     <ScrollView
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      showsVerticalScrollIndicator={false}
     >
-      <View style={styles.welcomeSection}>
-        <Text style={styles.welcomeText}>Welcome,</Text>
-        <Text style={styles.nameText}>{transporterProfile?.business_name || user?.name || 'Transporter'}</Text>
-        <View style={styles.statusRow}>
-          <View style={[styles.statusBadge, isVerified ? styles.badgeVerified : styles.badgePending]}>
-            <Text style={[styles.statusText, isVerified ? styles.textVerified : styles.textPending]}>
-              {isVerified ? '✓ Verified' : '⏳ Pending Verification'}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.menuContainer}>
-        {menuItems.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.menuItem}
-            onPress={() => navigation.navigate(item.screen)}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: item.color + '15' }]}>
-              <Text style={styles.menuIcon}>{item.icon}</Text>
-              {item.badge > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.badge}</Text>
-                </View>
+      {/* Gradient Header */}
+      <LinearGradient colors={['#2563EB', '#1E40AF', '#1E3A8A']} style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerTop}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.greeting}>
+                Hello, {user?.name?.split(' ')[0] || 'Transporter'} 👋
+              </Text>
+              {profile?.business_name && (
+                <Text style={styles.businessName} numberOfLines={1}>
+                  🏢 {profile.business_name}
+                </Text>
               )}
             </View>
-            <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>{item.title}</Text>
-              <Text style={styles.menuDescription}>{item.description}</Text>
+            <TouchableOpacity
+              style={styles.avatarBtn}
+              onPress={() => navigation.navigate('TransporterMyProfile')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.avatarText}>
+                {(user?.name || 'T').charAt(0).toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Quick Search Bar */}
+          <TouchableOpacity
+            style={styles.searchBar}
+            onPress={() => navigation.navigate('TransporterSearch')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.searchIcon}>🔍</Text>
+            <Text style={styles.searchPlaceholder}>Search transporters...</Text>
+            <View style={styles.searchBadge}>
+              <Text style={styles.searchBadgeText}>GO</Text>
             </View>
-            <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
+
+          {/* See All Transporters */}
+          <TouchableOpacity
+            style={styles.viewAllBtn}
+            onPress={() => navigation.navigate('TransporterList')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.viewAllIcon}>👥</Text>
+            <Text style={styles.viewAllText}>See All Transporters</Text>
+            <Text style={styles.viewAllArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      {/* Stats row overlapping header */}
+      <View style={styles.statsRow}>
+        {[
+          { label: 'Requests', value: stats.incoming, icon: '📥', color: '#10B981' },
+          { label: 'Favorites', value: stats.favorites, icon: '⭐', color: '#F59E0B' },
+          { label: 'Unread', value: stats.unread, icon: '🔔', color: '#EF4444' },
+        ].map((stat, index) => (
+          <View key={index} style={[styles.statCard, { borderLeftColor: stat.color }]}>
+            <Text style={styles.statIcon}>{stat.icon}</Text>
+            <Text style={styles.statValue}>{stat.value}</Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+          </View>
         ))}
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
+      {/* Verification card */}
+      <View style={styles.section}>
+        <Card>
+          <View style={styles.statusRow}>
+            <View style={styles.statusLeft}>
+              <Text style={styles.statusTitle}>Verification Status</Text>
+              {!isVerified && (
+                <Text style={styles.statusNote}>
+                  {verificationStatus === 'rejected'
+                    ? 'Registration rejected — please contact support.'
+                    : 'Under review. You will be notified once verified.'}
+                </Text>
+              )}
+            </View>
+            <StatusBadge info={getStatusInfo(verificationStatus)} />
+          </View>
+        </Card>
+      </View>
 
-      <View style={{ height: 40 }} />
+      {/* Quick Actions — 2 column grid */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionsGrid}>
+          {quickActions.map((action, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[styles.actionCard, { backgroundColor: action.bgColor }]}
+              onPress={() => navigation.navigate(action.screen)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.actionIconCircle, { backgroundColor: action.color + '20' }]}>
+                <Text style={styles.actionIcon}>{action.icon}</Text>
+              </View>
+              <Text style={[styles.actionTitle, { color: action.color }]}>{action.title}</Text>
+              <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <View style={{ height: 24 }} />
     </ScrollView>
   );
 };
@@ -157,124 +241,207 @@ const TransporterDashboardScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F0F4F8',
   },
-  welcomeSection: {
-    backgroundColor: '#2563EB',
-    padding: 24,
-    paddingTop: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+
+  // Header
+  header: {
+    paddingTop: 20,
+    paddingBottom: 34,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
-  welcomeText: {
-    fontSize: 16,
-    color: '#BFDBFE',
-  },
-  nameText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginTop: 4,
-  },
-  statusRow: {
+  headerContent: { paddingHorizontal: 20 },
+  headerTop: {
     flexDirection: 'row',
-    marginTop: 12,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+  headerLeft: { flex: 1, marginRight: 12 },
+  greeting: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: COLORS.white,
+    marginBottom: 2,
   },
-  badgeVerified: {
-    backgroundColor: '#D1FAE5',
-  },
-  badgePending: {
-    backgroundColor: '#FEF3C7',
-  },
-  statusText: {
-    fontSize: 13,
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
     fontWeight: '500',
   },
-  textVerified: {
-    color: '#065F46',
+  businessName: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
+    marginTop: 3,
   },
-  textPending: {
-    color: '#92400E',
+  avatarBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
-  menuContainer: {
-    padding: 16,
+  avatarText: {
+    fontSize: 19,
+    fontWeight: '700',
+    color: COLORS.white,
   },
-  menuItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+
+  // Search bar
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  searchIcon: { fontSize: 17 },
+  searchPlaceholder: {
+    flex: 1,
+    fontSize: 15,
+    color: '#9CA3AF',
+  },
+  searchBadge: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  searchBadgeText: {
+    color: COLORS.white,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  viewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginTop: 10,
+    gap: 8,
+  },
+  viewAllIcon: { fontSize: 15 },
+  viewAllText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  viewAllArrow: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.8)',
+  },
+
+  // Stats
+  statsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginTop: -18,
+    gap: 10,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    padding: 13,
+    alignItems: 'center',
+    borderLeftWidth: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  statIcon: { fontSize: 18, marginBottom: 3 },
+  statValue: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+
+  // Sections
+  section: {
+    paddingHorizontal: 16,
+    marginTop: 18,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+
+  // Verification card
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statusLeft: { flex: 1 },
+  statusTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  statusNote: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 3,
+    lineHeight: 17,
+  },
+
+  // Action grid
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  actionCard: {
+    width: (SCREEN_WIDTH - 44) / 2,
+    borderRadius: 16,
+    padding: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 2,
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+  actionIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 10,
   },
-  menuIcon: {
-    fontSize: 24,
+  actionIcon: { fontSize: 20 },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
   },
-  menuTextContainer: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  menuTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  menuDescription: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  arrow: {
-    fontSize: 24,
-    color: '#9CA3AF',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#DC2626',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    margin: 16,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
-  },
-  logoutText: {
-    color: '#DC2626',
-    fontSize: 16,
-    fontWeight: '600',
+  actionSubtitle: {
+    fontSize: 11.5,
+    color: COLORS.textSecondary,
   },
 });
 

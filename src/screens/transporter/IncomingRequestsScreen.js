@@ -1,217 +1,231 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-} from 'react-native';
-import { serviceRequestAPI } from '../../services/api';
+import React, { useState, useCallback } from 'react';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
+import { COLORS } from '../../styles/colors';
+import { serviceRequestAPI } from '../../api';
+import { StatusBadge, EmptyState, LoadingSpinner } from '../../components/SharedComponents';
+import { getStatusInfo, formatDate } from '../../utils/helpers';
 
 const IncomingRequestsScreen = ({ navigation }) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadRequests();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadRequests();
+    }, []),
+  );
 
   const loadRequests = async () => {
     try {
-      setLoading(true);
-      const response = await serviceRequestAPI.incomingRequests({ per_page: 50 });
-      setRequests(response.data.data.data);
-    } catch (error) {
-      console.error('Failed to load requests:', error);
+      const response = await serviceRequestAPI.incomingRequests({});
+      const data = response.data.data;
+      setRequests(data?.data || data || []);
+    } catch {
+      // ignore
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      pending: '#F59E0B',
-      accepted: '#10B981',
-      declined: '#EF4444',
-      completed: '#2563EB',
-      cancelled: '#6B7280',
-    };
-    return colors[status] || '#6B7280';
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadRequests();
+    setRefreshing(false);
   };
 
-  const renderRequest = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('RequestDetail', { id: item.id })}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={styles.customerName}>{item.user?.name || 'Customer'}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.routeContainer}>
-        <Text style={styles.routeText}>📍 {item.from_location_address}</Text>
-        <Text style={styles.routeArrow}>↓</Text>
-        <Text style={styles.routeText}>📍 {item.to_location_address}</Text>
-      </View>
-
-      <View style={styles.details}>
-        {item.vehicle_type && (
-          <Text style={styles.detailText}>🚛 {item.vehicle_type.name}</Text>
-        )}
-        {item.estimated_weight && (
-          <Text style={styles.detailText}>⚖️ {item.estimated_weight} tons</Text>
-        )}
-      </View>
-
-      <View style={styles.cardFooter}>
-        <Text style={styles.dateText}>{new Date(item.created_at).toLocaleDateString()}</Text>
-        <Text style={styles.viewMore}>View & Respond ›</Text>
-      </View>
-    </TouchableOpacity>
-  );
-
-  if (loading) {
+  const renderRequest = ({ item }) => {
+    const customer = item.user || item.customer || {};
+    const vt = item.vehicle_type;
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563EB" />
-      </View>
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => navigation.navigate('RequestDetail', { requestId: item.id })}
+        activeOpacity={0.7}
+      >
+        {/* ID strip */}
+        <LinearGradient
+          colors={['#059669', '#047857']}
+          style={styles.idStrip}
+        >
+          <Text style={styles.requestId}>Request #{item.id}</Text>
+          {item.status && <StatusBadge info={getStatusInfo(item.status)} />}
+        </LinearGradient>
+
+        <View style={styles.cardBody}>
+          {/* Customer */}
+          {(customer.name || customer.mobile) && (
+            <View style={styles.customerRow}>
+              <View style={styles.customerAvatar}>
+                <Text style={styles.customerAvatarText}>
+                  {(customer.name || '?').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.customerInfo}>
+                {customer.name && (
+                  <Text style={styles.customerName} numberOfLines={1}>
+                    {customer.name}
+                  </Text>
+                )}
+                {customer.mobile && (
+                  <Text style={styles.customerMobile}>📱 {customer.mobile}</Text>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Route */}
+          <View style={styles.routeRow}>
+            <View style={styles.routeChip}>
+              <Text style={styles.routeChipLabel}>🟢</Text>
+              <Text style={styles.routeChipValue} numberOfLines={1}>
+                {item.from_location_address || '—'}
+              </Text>
+            </View>
+            <Text style={styles.routeArrow}>→</Text>
+            <View style={styles.routeChip}>
+              <Text style={styles.routeChipLabel}>🔴</Text>
+              <Text style={styles.routeChipValue} numberOfLines={1}>
+                {item.to_location_address || '—'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Footer meta */}
+          <View style={styles.cardFooter}>
+            {vt?.name && <Text style={styles.footerInfo}>📦 {vt.name}</Text>}
+            {item.preferred_date && (
+              <Text style={styles.footerInfo}>📅 {formatDate(item.preferred_date)}</Text>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
     );
-  }
+  };
+
+  if (loading) return <LoadingSpinner />;
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={requests}
-        renderItem={renderRequest}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📥</Text>
-            <Text style={styles.emptyText}>No incoming requests</Text>
-            <Text style={styles.emptySubtext}>Service requests from customers will appear here</Text>
-          </View>
-        }
-      />
-    </View>
+    <FlatList
+      data={requests}
+      renderItem={renderRequest}
+      keyExtractor={(item) => String(item.id)}
+      contentContainerStyle={styles.list}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      ListEmptyComponent={
+        <EmptyState
+          icon="📥"
+          title="No Incoming Requests"
+          message="You don't have any incoming service requests yet."
+        />
+      }
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F3F4F6',
+  list: {
+    padding: 16,
+    flexGrow: 1,
   },
-  loadingContainer: {
-    flex: 1,
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    marginBottom: 14,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  idStrip: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  requestId: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  cardBody: {
+    padding: 14,
+  },
+  customerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  customerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  list: {
-    padding: 16,
+  customerAvatarText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.primaryDark,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
+  customerInfo: { flex: 1 },
   customerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  routeContainer: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  routeText: {
     fontSize: 14,
-    color: '#374151',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  customerMobile: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  routeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  routeChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F0F4FF',
+    borderRadius: 9,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+  },
+  routeChipLabel: { fontSize: 11 },
+  routeChipValue: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: COLORS.text,
   },
   routeArrow: {
-    fontSize: 16,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    marginVertical: 4,
-  },
-  details: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  detailText: {
-    fontSize: 13,
-    color: '#6B7280',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.primary,
   },
   cardFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
+    gap: 14,
+    flexWrap: 'wrap',
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: COLORS.gray100,
+    paddingTop: 10,
   },
-  dateText: {
+  footerInfo: {
     fontSize: 12,
-    color: '#9CA3AF',
-  },
-  viewMore: {
-    fontSize: 14,
-    color: '#2563EB',
+    color: COLORS.textSecondary,
     fontWeight: '500',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
   },
 });
 

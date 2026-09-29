@@ -4,357 +4,313 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  StyleSheet,
   Dimensions,
-  StatusBar,
 } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
+import LinearGradient from 'react-native-linear-gradient';
+import { COLORS } from '../../styles/colors';
+import { authAPI } from '../../api';
+import { isValidMobile } from '../../utils/helpers';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const LoginScreen = ({ navigation }) => {
   const [mobile, setMobile] = useState('');
   const [loading, setLoading] = useState(false);
-  const { sendOtp } = useAuth();
 
   const handleSendOtp = async () => {
-    if (!mobile || mobile.length < 10) {
-      Alert.alert('Error', 'Please enter a valid mobile number');
+    const cleaned = mobile.replace(/\D/g, '');
+    if (!isValidMobile(cleaned)) {
+      Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
     }
-
     setLoading(true);
     try {
-      const response = await sendOtp(mobile);
-      navigation.navigate('Otp', { mobile, devOtp: response?.data?.otp });
+      const response = await authAPI.sendOtp(cleaned);
+      // Capture OTP from dev mode response
+      const otp = response.data?.data?.otp;
+      navigation.navigate('Otp', { mobile: cleaned, otp });
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to send OTP');
+      let msg = error.response?.data?.message;
+      if (!msg && !error.response) {
+        // No HTTP response at all → connection to the server failed
+        msg = 'Cannot reach the server. Please check your internet connection and try again.';
+      }
+      Alert.alert('Error', msg || 'Failed to send OTP. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <StatusBar barStyle="light-content" backgroundColor="#1E40AF" />
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* Header with gradient background */}
-        <View style={styles.header}>
-          <View style={styles.headerOverlay}>
-            <View style={styles.logoContainer}>
-              <View style={styles.logoCircle}>
-                <Text style={styles.logoIcon}>🚛</Text>
-              </View>
-              <Text style={styles.logo}>iDOT</Text>
-              <Text style={styles.tagline}>Transport Made Simple</Text>
-            </View>
-
-            {/* Feature highlights */}
-            <View style={styles.featuresRow}>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureIcon}>🔍</Text>
-                <Text style={styles.featureText}>Find Transporters</Text>
-              </View>
-              <View style={styles.featureDivider} />
-              <View style={styles.featureItem}>
-                <Text style={styles.featureIcon}>📦</Text>
-                <Text style={styles.featureText}>Book Services</Text>
-              </View>
-              <View style={styles.featureDivider} />
-              <View style={styles.featureItem}>
-                <Text style={styles.featureIcon}>⭐</Text>
-                <Text style={styles.featureText}>Track Orders</Text>
-              </View>
-            </View>
-          </View>
+    <View style={styles.container}>
+      <LinearGradient colors={['#2563EB', '#1E40AF']} style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.brandName}>iDOT</Text>
+          <Text style={styles.tagline}>Smart Transport Solutions</Text>
         </View>
+      </LinearGradient>
 
-        {/* Login Form Card */}
-        <View style={styles.formCard}>
-          <Text style={styles.formTitle}>Welcome Back</Text>
-          <Text style={styles.formSubtitle}>Enter your mobile number to continue</Text>
+      <KeyboardAvoidingView
+        style={styles.formContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>Welcome Back</Text>
+            <Text style={styles.formSubtitle}>Enter your mobile number to continue</Text>
 
-          <View style={styles.inputContainer}>
-            <View style={styles.inputPrefix}>
-              <Text style={styles.inputPrefixText}>🇮🇳 +91</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Mobile Number</Text>
+              <View style={styles.inputRow}>
+                <View style={styles.prefixContainer}>
+                  <Text style={styles.prefixFlag}>🇮🇳</Text>
+                  <Text style={styles.prefix}>+91</Text>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter mobile number"
+                  placeholderTextColor={COLORS.placeholder}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  value={mobile}
+                  onChangeText={setMobile}
+                />
+              </View>
             </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Mobile Number"
-              value={mobile}
-              onChangeText={setMobile}
-              keyboardType="phone-pad"
-              maxLength={15}
-              placeholderTextColor="#9CA3AF"
-            />
+
+            <TouchableOpacity
+              style={[styles.loginButton, (mobile.replace(/\D/g, '').length !== 10 || loading) && styles.loginButtonDisabled]}
+              onPress={handleSendOtp}
+              disabled={mobile.replace(/\D/g, '').length !== 10 || loading}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={
+                  mobile.replace(/\D/g, '').length === 10 && !loading
+                    ? ['#2563EB', '#7C3AED']
+                    : ['#9CA3AF', '#9CA3AF']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.loginButtonGradient}
+              >
+                <Text style={styles.loginButtonText}>
+                  {loading ? 'Sending...' : 'Send OTP →'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity
+              style={styles.registerBtn}
+              onPress={() => navigation.navigate('Register')}
+            >
+              <Text style={styles.registerBtnText}>
+                New user? <Text style={styles.registerBold}>Register as Customer</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.registerBtnSecondary}
+              onPress={() => navigation.navigate('RegisterTransporter')}
+            >
+              <Text style={styles.registerBtnSecondaryText}>
+                🚛 <Text style={styles.registerBold}>Register as Transporter</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSendOtp}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? 'Sending OTP...' : 'Send OTP'}
-            </Text>
-            {!loading && <Text style={styles.buttonArrow}>→</Text>}
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity
-            style={styles.registerButton}
-            onPress={() => navigation.navigate('Register')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.registerIcon}>👤</Text>
-            <View style={styles.registerInfo}>
-              <Text style={styles.registerTitle}>Register as Customer</Text>
-              <Text style={styles.registerSubtitle}>Create a new account</Text>
-            </View>
-            <Text style={styles.registerArrow}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.registerButton}
-            onPress={() => navigation.navigate('RegisterTransporter')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.registerIcon}>🚛</Text>
-            <View style={styles.registerInfo}>
-              <Text style={styles.registerTitle}>Register as Transporter</Text>
-              <Text style={styles.registerSubtitle}>List your transport business</Text>
-            </View>
-            <Text style={styles.registerArrow}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.footerText}>
-          By continuing, you agree to our Terms & Conditions
-        </Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
-  },
-  scrollContent: {
-    flexGrow: 1,
+    backgroundColor: '#F0F4F8',
   },
   header: {
-    backgroundColor: '#1E40AF',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 40,
+    paddingTop: 60,
+    paddingBottom: 50,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
   },
-  headerOverlay: {
-    paddingHorizontal: 24,
-  },
-  logoContainer: {
+  headerContent: {
     alignItems: 'center',
-    marginBottom: 24,
   },
   logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
-  logoIcon: {
+  logoEmoji: {
+    fontSize: 40,
+  },
+  brandName: {
     fontSize: 36,
-  },
-  logo: {
-    fontSize: 42,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontWeight: '900',
+    color: COLORS.white,
     letterSpacing: 3,
   },
   tagline: {
-    fontSize: 16,
-    color: '#BFDBFE',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.75)',
     marginTop: 4,
   },
-  featuresRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 16,
-    padding: 16,
-  },
-  featureItem: {
-    alignItems: 'center',
+  formContainer: {
     flex: 1,
   },
-  featureIcon: {
-    fontSize: 24,
-    marginBottom: 6,
-  },
-  featureText: {
-    fontSize: 11,
-    color: '#BFDBFE',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  featureDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
   formCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: -20,
+    backgroundColor: COLORS.white,
     borderRadius: 24,
     padding: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 5,
   },
   formTitle: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginBottom: 6,
   },
   formSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 24,
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    marginBottom: 28,
   },
-  inputContainer: {
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
   },
-  inputPrefix: {
-    backgroundColor: '#F1F5F9',
+  prefixContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.gray50,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRightWidth: 0,
     borderTopLeftRadius: 12,
     borderBottomLeftRadius: 12,
-    borderWidth: 1,
-    borderRightWidth: 0,
-    borderColor: '#E2E8F0',
-    padding: 16,
+    paddingHorizontal: 12,
+    height: 52,
+    gap: 6,
   },
-  inputPrefixText: {
+  prefixFlag: {
+    fontSize: 18,
+  },
+  prefix: {
     fontSize: 16,
-    color: '#475569',
-    fontWeight: '600',
+    fontWeight: '700',
+    color: COLORS.text,
   },
   input: {
     flex: 1,
+    backgroundColor: COLORS.gray50,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
     borderTopRightRadius: 12,
     borderBottomRightRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: '#F8FAFC',
-    color: '#111827',
+    paddingHorizontal: 16,
+    height: 52,
+    fontSize: 17,
+    color: COLORS.text,
+    fontWeight: '500',
   },
-  button: {
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
+  loginButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  loginButtonDisabled: {
+    opacity: 0.7,
+  },
+  loginButtonGradient: {
+    paddingVertical: 16,
     alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    borderRadius: 14,
   },
-  buttonDisabled: {
-    backgroundColor: '#93C5FD',
-    shadowOpacity: 0,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+  loginButtonText: {
+    color: COLORS.white,
+    fontSize: 17,
     fontWeight: '700',
   },
-  buttonArrow: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    marginLeft: 8,
-  },
-  divider: {
+  dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginBottom: 20,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: COLORS.gray200,
   },
   dividerText: {
-    marginHorizontal: 16,
-    color: '#94A3B8',
+    marginHorizontal: 14,
+    color: COLORS.textSecondary,
     fontSize: 13,
-    fontWeight: '500',
-  },
-  registerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  registerIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  registerInfo: {
-    flex: 1,
-  },
-  registerTitle: {
-    color: '#1E293B',
-    fontSize: 15,
     fontWeight: '600',
   },
-  registerSubtitle: {
-    color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 2,
+  registerBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    backgroundColor: COLORS.gray50,
+    borderRadius: 12,
+    marginBottom: 10,
   },
-  registerArrow: {
-    fontSize: 22,
-    color: '#94A3B8',
+  registerBtnText: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
   },
-  footerText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 20,
-    marginBottom: 32,
+  registerBold: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  registerBtnSecondary: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    borderRadius: 12,
+    backgroundColor: COLORS.primaryLight,
+  },
+  registerBtnSecondaryText: {
+    fontSize: 15,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
 });
 
