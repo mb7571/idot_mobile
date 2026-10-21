@@ -1,17 +1,23 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Dynamic API host resolution
 // ═══════════════════════════════════════════════════════════════════════════
-// The backend (Laravel `php artisan serve`) runs on a dev PC whose LAN IP can
-// change between DHCP leases, which used to break the app silently. Instead of
-// hard-coding one IP, we probe a list of candidate hosts at startup:
+// Release builds (__DEV__ === false) talk to PRODUCTION_BASE_URL directly —
+// no probing, because a user's phone can never reach the dev PC anyway.
+//
+// Dev builds probe a list of candidate hosts at startup instead, since the
+// backend (Laravel `php artisan serve`) runs on a dev PC whose LAN IP can
+// change between DHCP leases:
 //
 //   1. localhost:8000   → works when `adb reverse tcp:8000 tcp:8000` is active
 //   2. each LAN IP below → works when the phone is on the same Wi-Fi network
 //
 // The first host that answers wins and is remembered in AsyncStorage, so
 // subsequent launches start with the last-known-good host. A manual override
-// (set via setApiHostOverride) always wins over probing.
+// (set via setApiHostOverride) always wins over both.
 // ═══════════════════════════════════════════════════════════════════════════
+
+// Production backend (Laravel, behind Cloudflare).
+export const PRODUCTION_BASE_URL = 'https://idot.kmwebtech.com';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -26,7 +32,10 @@ const LAN_HOST_CANDIDATES = ['192.168.1.8', '192.168.1.7'];
 
 const PROBE_TIMEOUT_MS = 2500;
 
-const buildUrl = (host) => `http://${host}:${API_PORT}`;
+// Bare hosts ("localhost", LAN IPs) become http://host:8000; absolute URLs
+// (production, or an override like "http://10.0.0.5:9000") pass through as-is.
+const buildUrl = (host) =>
+  /^https?:\/\//.test(host) ? host.replace(/\/+$/, '') : `http://${host}:${API_PORT}`;
 
 // ── Manual override (persists across restarts) ────────────────────────────
 export const setApiHostOverride = async (host) => {
@@ -59,8 +68,9 @@ const probeHost = async (host) => {
 };
 
 // ── Resolve the best available host ────────────────────────────────────────
-// Order: manual override → localhost (adb reverse) → LAN IPs.
-// Resolves to a host string, e.g. "localhost" or "192.168.1.8".
+// Order: manual override → production (release) → localhost/LAN probe (dev).
+// Resolves to an absolute URL or a bare host, e.g. "https://idot.kmwebtech.com"
+// or "192.168.1.8" (bare hosts are rendered as http://host:8000 by buildUrl).
 export const resolveApiHost = async () => {
   // 1. Manual override always wins
   const override = await getApiHostOverride();
@@ -69,7 +79,15 @@ export const resolveApiHost = async () => {
     return override;
   }
 
-  // 2. Probe candidates in order. Connection-refused fails instantly, so this
+  // 2. Release builds (CI APKs, Play Store) use production directly. Probing
+  //    localhost/LAN here would only burn seconds on timeouts per launch.
+  if (!__DEV__) {
+    console.log('[APIHost] Release build → production:', PRODUCTION_BASE_URL);
+    return PRODUCTION_BASE_URL;
+  }
+
+  // 3. Dev builds: probe candidates in order. Connection-refused fails
+  //    instantly, so this
   //    sequence is cheap; only unreachable IPs wait out the probe timeout.
   const candidates = ['localhost', ...LAN_HOST_CANDIDATES];
   for (const host of candidates) {
@@ -84,7 +102,8 @@ export const resolveApiHost = async () => {
     }
   }
 
-  // 3. Nothing answered — fall back to localhost (adb reverse workflow)
+  // 4. Dev only — nothing answered: fall back to localhost (adb reverse
+  //    workflow). Release builds never reach this point.
   console.warn('[APIHost] No host reachable, falling back to localhost');
   return 'localhost';
 };
