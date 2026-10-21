@@ -37,6 +37,7 @@ jobs:
       - name: Build release APK
         run: |
           cd android
+          chmod +x gradlew
           ./gradlew assembleRelease \
             -PMAPS_API_KEY="${{ secrets.MAPS_API_KEY }}" \
             -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
