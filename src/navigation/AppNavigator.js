@@ -23,6 +23,8 @@ import FavoritesScreen from '../screens/customer/FavoritesScreen';
 import ServiceRequestScreen from '../screens/customer/ServiceRequestScreen';
 import MyRequestsScreen from '../screens/customer/MyRequestsScreen';
 import RequestDetailScreen from '../screens/customer/RequestDetailScreen';
+import SubscriptionScreen from '../screens/customer/SubscriptionScreen';
+import PaymentHistoryScreen from '../screens/customer/PaymentHistoryScreen';
 
 // Transporter stack screens
 import IncomingRequestsScreen from '../screens/transporter/IncomingRequestsScreen';
@@ -91,6 +93,8 @@ const CustomerFlow = () => (
     <Stack.Screen name="Favorites" component={FavoritesScreen} options={{ title: 'My Favorites' }} />
     <Stack.Screen name="MyRequests" component={MyRequestsScreen} options={{ title: 'My Requests' }} />
     <Stack.Screen name="RequestDetail" component={RequestDetailScreen} options={{ title: 'Request Details' }} />
+    <Stack.Screen name="Subscription" component={SubscriptionScreen} options={{ title: 'Subscription Plans' }} />
+    <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} options={{ title: 'Payments & Invoices' }} />
     <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Edit Profile' }} />
     <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
     <Stack.Screen name="Content" component={ContentScreen} options={{ title: 'Content' }} />

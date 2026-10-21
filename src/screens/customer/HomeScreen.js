@@ -12,7 +12,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { COLORS } from '../../styles/colors';
 import { useAuth } from '../../context/AuthContext';
-import { favoriteAPI, serviceRequestAPI, notificationAPI } from '../../api';
+import { checkLowSearches } from '../../utils/lowSearchWarn';
+import { favoriteAPI, serviceRequestAPI, notificationAPI, subscriptionAPI } from '../../api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -20,12 +21,24 @@ const HomeScreen = ({ navigation }) => {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({ favorites: 0, requests: 0, unread: 0 });
+  const [subscription, setSubscription] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
       loadStats();
+      loadSubscription();
     }, []),
   );
+
+  const loadSubscription = async () => {
+    try {
+      const res = await subscriptionAPI.getStatus();
+      setSubscription(res.data?.data || null);
+      checkLowSearches(res.data?.data);
+    } catch {
+      setSubscription(null);
+    }
+  };
 
   const loadStats = async () => {
     try {
@@ -53,7 +66,7 @@ const HomeScreen = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadStats();
+    await Promise.all([loadStats(), loadSubscription()]);
     setRefreshing(false);
   };
 
@@ -140,6 +153,52 @@ const HomeScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </LinearGradient>
+
+      {/* Subscription status banner */}
+      {subscription?.enabled && (
+        <TouchableOpacity
+          style={[
+            styles.subBanner,
+            subscription?.has_subscription &&
+              !subscription.subscription?.is_unlimited &&
+              (subscription.subscription?.remaining_searches ?? Infinity) <= 5 &&
+              styles.subBannerLow,
+          ]}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Subscription')}
+        >
+          <Text style={styles.subBannerIcon}>
+            {!subscription.has_subscription
+              ? (subscription.free_plan_available ? '🎁' : '⭐')
+              : subscription.can_search
+              ? (subscription.subscription?.is_unlimited ? '♾️' : '⭐')
+              : '🔒'}
+          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.subBannerTitle}>
+              {!subscription.has_subscription
+                ? (subscription.free_plan_available
+                  ? 'Activate your Free Trial'
+                  : 'Choose a Plan to Search')
+                : subscription.can_search
+                ? subscription.subscription?.is_unlimited
+                  ? 'Unlimited searches active'
+                  : `${subscription.subscription?.remaining_searches} searches left`
+                : 'Searches used up — Renew now'}
+            </Text>
+            <Text style={styles.subBannerSub}>
+              {!subscription.has_subscription
+                ? (subscription.free_plan_available
+                  ? '30 free searches · 15 days'
+                  : 'Monthly, Quarterly & Yearly plans')
+                : subscription.can_search
+                ? `${subscription.subscription?.plan_name} plan${subscription.subscription?.days_remaining !== undefined ? ` · ${subscription.subscription.days_remaining}d left` : ''}`
+                : 'Tap to view subscription plans'}
+            </Text>
+          </View>
+          <Text style={styles.subBannerArrow}>→</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Stats Cards */}
       <View style={styles.statsRow}>
@@ -304,10 +363,37 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'rgba(255,255,255,0.8)',
   },
+  // Subscription banner
+  subBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 16,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  // Amber treatment when the customer is down to their last 5 searches
+  subBannerLow: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+  },
+  subBannerIcon: { fontSize: 24 },
+  subBannerTitle: { fontSize: 14, fontWeight: '800', color: COLORS.text },
+  subBannerSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
+  subBannerArrow: { fontSize: 16, color: COLORS.placeholder, fontWeight: '700' },
+
   statsRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    marginTop: -14,
+    marginTop: 12,
     gap: 10,
   },
   statCard: {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,13 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { COLORS } from '../../styles/colors';
-import { mastersAPI, transporterAPI } from '../../api';
+import { mastersAPI, transporterAPI, subscriptionAPI } from '../../api';
 import { LoadingSpinner } from '../../components/SharedComponents';
 import LocationAutocomplete from '../../components/LocationAutocomplete';
+import { checkLowSearches } from '../../utils/lowSearchWarn';
 
 const TransporterSearchScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
@@ -27,9 +29,26 @@ const TransporterSearchScreen = ({ navigation }) => {
   // Master data
   const [vehicleTypes, setVehicleTypes] = useState([]);
 
+  // Subscription status for the live remaining-searches counter.
+  // Refreshed on focus (returning from Subscription screen) and after every
+  // search (search responses carry a fresh subscription payload).
+  const [subscription, setSubscription] = useState(null);
+
   useEffect(() => {
     loadMasters();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      subscriptionAPI
+        .getStatus()
+        .then((res) => {
+          setSubscription(res.data?.data || null);
+          checkLowSearches(res.data?.data);
+        })
+        .catch(() => {});
+    }, []),
+  );
 
   const loadMasters = async () => {
     try {
@@ -73,9 +92,7 @@ const TransporterSearchScreen = ({ navigation }) => {
     if (toLocation?.latitude && toLocation?.longitude) {
       params.to_latitude = toLocation.latitude;
       params.to_longitude = toLocation.longitude;
-    }
-
-    setLoading(true);
+    }      setLoading(true);
     try {
       const response = await transporterAPI.search(params);
 
@@ -94,10 +111,25 @@ const TransporterSearchScreen = ({ navigation }) => {
         results = responseData;
       }
 
+      // Live-update the remaining-searches counter from the search response
+      if (responseData?.subscription) {
+        setSubscription(responseData.subscription);
+        // Fire the low-searches warning as soon as the customer drops to
+        // their last 5 (then 3, then 1) searches — once per threshold.
+        checkLowSearches(responseData.subscription);
+      }
+
       // isSearch flag tells the list screen this came from an actual search,
       // so even an EMPTY result must show "not found" instead of all transporters
       navigation.navigate('TransporterList', { results, isSearch: true });
     } catch (error) {
+      // Subscription gating: free plan used up / expired / never activated
+      if (error.response?.data?.error_code === 'SUBSCRIPTION_REQUIRED') {
+        // Sync the counter with the blocked status too
+        if (error.response?.data?.data) setSubscription(error.response.data.data);
+        showSubscriptionPopup();
+        return;
+      }
       const msg = error.response?.data?.message || 'Search failed. Please try again.';
       Alert.alert('Error', msg);
     } finally {
@@ -105,11 +137,41 @@ const TransporterSearchScreen = ({ navigation }) => {
     }
   };
 
+  const showSubscriptionPopup = () => {
+    Alert.alert(
+      '🔒 Subscription Required',
+      'Your searches are used up or your plan has expired.\n\nSubscribe to keep finding transporters across India.',
+      [
+        { text: 'Maybe Later', style: 'cancel' },
+        { text: 'View Plans ⭐', onPress: () => navigation.navigate('Subscription') },
+      ],
+    );
+  };
+
   if (loadingMasters) {
     return <LoadingSpinner />;
   }
 
   const hasFilters = query || selectedVehicleType || fromLocation || toLocation;
+
+  // Counter pill: derive label + tone from the live subscription status
+  const subData = subscription?.subscription;
+  let pill = null;
+  if (subData?.is_unlimited) {
+    pill = { bg: '#ECFDF5', text: '#059669', icon: '♾️', label: 'Unlimited searches active' };
+  } else if (subData) {
+    const left = subData.remaining_searches ?? 0;
+    const limit = subData.searches_limit || 0;
+    if (left <= 0) {
+      pill = { bg: '#FEE2E2', text: '#991B1B', icon: '⛔', label: 'No searches left — renew now' };
+    } else if (limit > 0 && left <= Math.ceil(limit * 0.2)) {
+      pill = { bg: '#FEF3C7', text: '#92400E', icon: '⚠️', label: `${left} of ${limit} searches left` };
+    } else {
+      pill = { bg: '#EEF2FF', text: '#3730A3', icon: '🔍', label: `${left} of ${limit} searches left` };
+    }
+  } else if (subscription?.enabled) {
+    pill = { bg: '#FEE2E2', text: '#991B1B', icon: '🔒', label: 'No active plan — subscribe to search' };
+  }
 
   return (
     <View style={styles.container}>
@@ -119,6 +181,21 @@ const TransporterSearchScreen = ({ navigation }) => {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Live remaining-searches counter */}
+        {pill && (
+          <TouchableOpacity
+            style={[styles.counterPill, { backgroundColor: pill.bg }]}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('Subscription')}
+          >
+            <View style={styles.counterLeft}>
+              <Text style={styles.counterIcon}>{pill.icon}</Text>
+              <Text style={[styles.counterText, { color: pill.text }]}>{pill.label}</Text>
+            </View>
+            <Text style={[styles.counterCta, { color: pill.text }]}>Manage ›</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Form card overlapping the header */}
         <View style={styles.formCard}>
           {/* General search query - matches business name, contact, mobile, city, etc. */}
@@ -274,6 +351,21 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
+
+  // Live subscription counter pill
+  counterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  counterLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  counterIcon: { fontSize: 15 },
+  counterText: { fontSize: 13.5, fontWeight: '800' },
+  counterCta: { fontSize: 12.5, fontWeight: '700', opacity: 0.85 },
   formCard: {
     backgroundColor: COLORS.white,
     borderRadius: 20,

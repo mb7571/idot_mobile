@@ -12,7 +12,7 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import { COLORS } from '../styles/colors';
 import { DEFAULT_REGION } from '../config/maps';
-import { API_URL } from '../config/api';
+import { getApiUrl } from '../config/api';
 
 // ── Android permission ──────────────────────────────────────────────────
 const requestLocationPermission = async () => {
@@ -40,7 +40,7 @@ const reverseGeocode = async (lat, lng) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
     const res = await fetch(
-      `${API_URL}/maps/geocode?latlng=${lat},${lng}`,
+      `${getApiUrl()}/maps/geocode?latlng=${lat},${lng}`,
       { signal: controller.signal },
     );
     clearTimeout(timer);

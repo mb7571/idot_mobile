@@ -1,5 +1,5 @@
 import { Alert } from 'react-native';
-import { API_BASE_URL } from '../config/api';
+import { getApiBaseUrl } from '../config/api';
 
 // Build full URL for transporter logo
 export const getLogoUrl = (logoPath) => {
@@ -7,7 +7,7 @@ export const getLogoUrl = (logoPath) => {
   // If it's already a full URL, return as-is
   if (logoPath.startsWith('http')) return logoPath;
   // Otherwise prepend the storage base URL
-  return `${API_BASE_URL}/storage/${logoPath}`;
+  return `${getApiBaseUrl()}/storage/${logoPath}`;
 };
 
 // Format mobile number for display

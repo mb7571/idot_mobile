@@ -24,6 +24,13 @@ const SettingsScreen = ({ navigation }) => {
 
   const menuItems = [
     {
+      icon: '⭐',
+      title: 'My Subscription',
+      subtitle: 'Current plan, payments & invoices',
+      screen: 'Subscription',
+      color: '#7C3AED',
+    },
+    {
       icon: '👤',
       title: 'Edit Profile',
       subtitle: 'Update your personal information',

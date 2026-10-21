@@ -6,3 +6,4 @@ export { mastersAPI } from './masters';
 export { notificationAPI } from './notifications';
 export { contentAPI } from './content';
 export { settingsAPI } from './settings';
+export { subscriptionAPI } from './subscriptions';

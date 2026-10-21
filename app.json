@@ -1,4 +1,27 @@
 {
   "name": "idotMobile",
-  "displayName": "iDOT"
+  "expo": {
+    "name": "iDOT",
+    "slug": "idot-mobile",
+    "version": "1.2.0",
+    "orientation": "portrait",
+    "icon": "./android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+    "userInterfaceStyle": "light",
+    "scheme": "idot",
+    "android": {
+      "package": "com.idotmobile",
+      "versionCode": 3,
+      "adaptiveIcon": {
+        "foregroundImage": "./android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+        "backgroundImage": "./android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_background.png"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.idotmobile"
+    },
+    "plugins": [],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
 }

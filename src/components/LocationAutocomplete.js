@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { API_URL } from '../config/api';
+import { getApiUrl } from '../config/api';
 import { COLORS } from '../styles/colors';
 import MapLocationPicker from './MapLocationPicker';
 
@@ -18,7 +18,7 @@ const searchPlaces = async (query) => {
   if (!query || query.length < 2) return { results: [], error: null };
   try {
     const url =
-      `${API_URL}/maps/autocomplete` +
+      `${getApiUrl()}/maps/autocomplete` +
       `?input=${encodeURIComponent(query)}` +
       `&components=country:in` +
       `&language=en`;
@@ -60,7 +60,7 @@ const searchPlaces = async (query) => {
 const getPlaceDetails = async (placeId) => {
   try {
     const url =
-      `${API_URL}/maps/place-details` +
+      `${getApiUrl()}/maps/place-details` +
       `?place_id=${placeId}` +
       `&fields=geometry,formatted_address`;
 
