@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, Image, Animated, StyleSheet, StatusBar } from 'react-native';
 import { COLORS } from '../styles/colors';
+import LOGO from '../assets/idot-logo.png';
 
 const SplashScreen = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -40,9 +41,8 @@ const SplashScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.logoContainer, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-        <View style={styles.logoCircle}>
-          <Text style={styles.logoIcon}>🚚</Text>
-        </View>
+        {/* The logo asset is already a circular badge — render it directly */}
+        <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
         <Text style={styles.logoText}>iDOT</Text>
         <Animated.Text style={[styles.tagline, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           Smart Transport Solutions
@@ -66,19 +66,10 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
   },
-  logoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  logoImage: {
+    width: 150,
+    height: 150,
     marginBottom: 24,
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
-  logoIcon: {
-    fontSize: 56,
   },
   logoText: {
     fontSize: 48,
